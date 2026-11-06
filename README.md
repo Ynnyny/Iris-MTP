@@ -1,67 +1,129 @@
-![Iris: An open-source shaders mod compatible with OptiFine shader packs](docs/banner.png)
+# Iris-MTP — Port Metal + Dịch GLSL→MSL (.imtp)
 
-# Iris
+Fork từ [IrisShaders/Iris](https://github.com/IrisShaders/Iris) nhánh 26.3. Nhánh `metal-port`, commit `96d8a5b`.
 
-## Links
+**Tiếng Việt | [English](#english)**
 
-* **Visit [our website](https://irisshaders.dev) for downloads and pretty screenshots!**
-* * **Visit [Modrinth](https://modrinth.com/shaders) to find shader packs!**
-* Visit [our Discord server](https://discord.gg/jQJnav2jPu) to chat about the mod and get support! It's also a great place to get development updates right as they're happening.
-* Visit [the developer documentation](https://github.com/IrisShaders/Iris/tree/trunk/docs/development) for information on developing, building, and contributing to Iris!
+---
 
-## FAQ
+## Tiếng Việt
 
-- Find answers to frequently asked questions on our [FAQ page](docs/faq.md).
-- Iris supports almost all shader packs, but a list of unsupported shader packs is available [here](docs/unsupportedshaders.md).
-- A list of unfixable limitations in Iris is available [here](docs/usage/limitations.md).
+### Giới thiệu
 
-## Why did you make Iris?
+Iris-MTP là một port của Iris Shader mods dành cho Minecraft 26.3 (Fabric/NeoForge). Thay vì dịch GLSL→Metal runtime (khối lượng lớn, cấp tháng), Iris-MTP dịch **trước** shader GLSL sang MSL (Metal Shading Language), lưu ra file `.imtp` (Iris Metal Translated Package), rồi mod chỉ nạp file `.imtp` đã dịch.
 
-Iris was created to fill a void that I saw in the Minecraft customization and graphical enhancement community: the lack of an open-source shaders mod that would let me load my favorite shader packs on modern versions of the game, while retaining performance and compatibility with modpacks. OptiFine, the current dominant mod for loading shader packs, has restrictive licensing that firmly stands in the way of any sort of tinkering, and is fairly notorious for having compatibility issues with the mods that I like. It's also mutually incompatible with Sodium, the best rendering optimization mod in existence by a large margin. ShadersMod was never updated past 1.12, and it lacks support for many of the many modern popular shader packs. So I created Iris, to try and solve these issues, and also address many other longstanding issues with shader packs.
+- `.zip` / thư mục không đuôi → nạp nguyên bản (chưa dịch), dùng OpenGL backend (mặc định).
+- `.imtp` → nạp qua Metal backend (iOS, macOS Intel, macOS ARM).
+- OpenGL giữ nguyên làm fallback/mặc định; không xóa/sửa code OpenGL hiện có.
 
-I first and foremost develop Iris to meet my own needs of a performance-oriented shaders mod with good compatibility and potential for tinkering. Iris when paired with Sodium delivers great performance on my machine, finally making it fully possible for me to actually play with shaders instead of just periodically switching them on to take pretty screenshots, then switching them off once I get tired of frame drops. Of course, as it turns out, I'm far from the only person who benefits from the development of Iris, which is why I've decided to release it to the public as an open-source mod.
+### Credit
 
-Canvas is another shaders mod that has already gained some traction. Its big downside for me, however, is the fact that it doesn't support the existing popular OptiFine shader packs that I want to use. This is because it uses a new format for shader packs that isn't compatible with the existing format, in order to achieve many of its goals for better mod integration with shaders. And while Canvas now has a few nice shaders like Lumi Lights, I still want to have the option of using existing shader packs that were designed for OptiFine. Shader packs just aren't interchangeable, just like how you cannot hand a copy of *The Last Supper* to someone who wants a copy of the *Mona Lisa*. They're both great pieces of art, but you absolutely cannot just swap one out for the other. That being said, if you're a fan of the shader packs available for Canvas, then great! Canvas and Iris are both perfectly fine ways to enjoy shaders with Minecraft.
+- **IrisShaders/Iris** — OpenGL gốc, bản nhánh 26.3.
+- **Sodium** — GL shader base.
+- **Metallum** (kokodio) — Metal native binding (metal-jvm).
+- **Ynnyny** — Iris-MTP port (này).
 
-## Goals
+### Cách cài đặt
 
-These are the goals of Iris. Iris hasn't fully achieved all these goals, however we are getting close.
+1. Clone repo: `https://github.com/Ynnyny/Iris-MTP.git` (nhánh `metal-port`).
+2. Metallum fork: `https://github.com/Ynnyny/Metallum` (nhánh `metal-multi-platform`), build và cài vào Maven Local hoặc dùng file jar trong `build/libs`.
+3. Trong `iris/common/build.gradle.kts`, Metallum đã được thêm làm dependency (flatDir trỏ đến `metallum/build/libs`).
+4. Build: `./gradlew :fabric:build` (hoặc `:neoforge:build`).
+   - Yêu cầu Java 25 (xem `build.gradle.kts`). Máy hiện tại build OK với Java 25 (Temurin 25.0.5).
 
-* **Performance.** Iris should fully utilize your graphics card when paired with optimization mods like Sodium.
-* **Correctness.** Iris should try to be as issueless as possible in its implementation.
-* **Mod compatibility.** Iris should make a best effort to be compatible with modded environments.
-* **Backwards compatibility.** All existing ShadersMod / OptiFine shader packs should just work on Iris, without any modifications required.
-* **Features for shader pack developers.** Once Iris has full support for existing features of the shader pipeline and is reasonably bug free, I wish to expand the horizons of what's possible to do with Minecraft shader packs through the addition of new features to the shader pipeline. Unlimited color buffers, direct voxel data access, and fancy debug HUDs are some examples of features that I'd like to add in the future.
-* **A well-organized codebase.** I'd like for working with Iris code to be a pleasant experience overall.
+### Cách dùng
 
+1. Dùng task Gradle để dịch shaderpack sang `.imtp`:
+   ```
+   ./gradlew :common:translateShaders
+   ```
+   Hoặc chạy CLI trực tiếp:
+   ```
+   java net.irisshaders.iris.metal.ShaderTranslatorCLI <shaderpack-dir> <output-dir> [mc-version]
+   ```
+2. File `.imtp` xuất ra sẽ được đặt vào thư mục đầu ra (tên pack + `.imtp`).
+3. Đặt file `.imtp` vào thư mục `shaderpacks/` của Minecraft.
+4. Trong game, chọn shaderpack `.imtp`. Nếu `iris.metal.enabled=true` và có `.imtp`, mod sẽ nạp qua Metal backend. Nếu là `.zip` / không đuôi, mod dùng OpenGL và báo "chưa dịch, dùng OpenGL".
+5. Cấu hình trong `iris.properties`:
+   - `metalEnabled=true/false`
+   - `backend=opengl|metal`
+   - `metalRequireImtp=true/false`
 
-## What's the current state of development?
+### UI trong game
 
-Iris has public releases for the latest version of Minecraft that work with the official releases of Sodium. Iris is generally usable on most shader packs, and most shader packs are being designed with Iris support in mind.
+Màn hình dịch shader (`MetalShaderTranslationScreen`) và thanh tiến trình (`ProgressBarWidget`) đã được tạo làm placeholder (P5). Hoàn thiện rendering GUI cần API Minecraft 26.3 client đầy đủ.
 
-However, Iris is still not complete software. Performance can be improved, and more features are being added for shader developers. There are also some minor missing features from OptiFine that make the implementation incomplete.
+### Trạng thái build
 
-## How can I help?
+- `:common:compileJava` — OK (Java 25).
+- `:fabric:compileJava` — OK.
+- Task `:common:translateShaders` — OK, xuất file `.imtp` đúng cấu trúc.
+- Minecraft client test: **chưa thể chạy** do không có Minecraft dev environment đầy đủ / đăng nhập Microsoft. Ghi chú này trong README.
 
-* The Iris Discord server is looking for people willing to provide support and moderate the server! Go to #applications on our server if you'd like to apply.
-* Code review on open PRs is appreciated! This helps get important issues with PRs resolved before I give them a look.
-* Code contributions through PRs are also welcome! If you're working on a large / significant feature it's usually a good idea to talk about your plans beforehand, to make sure that work isn't wasted.
+### Ràng buộc
 
-## Credits
+- Không xóa/sửa code OpenGL cũ — chỉ thêm lớp mới song song.
+- Mỗi phase commit riêng, không gộp quá lớn.
+- Pure-Java classes (backend abstraction, translator) có thể test bằng javac độc lập trước khi ghép vào Gradle.
 
-* **TheOnlyThing and Vaerian**, for creating the excellent logo
-* **Mumfrey**, for creating the Mixin bytecode patching system used by Iris and Sodium internally
-* **The Fabric and Quilt projects**, for enabling the existence of mods like Iris that make many patches to the game
-* **JellySquid**, for creating Sodium, the best rendering optimization mod for Minecraft that currently exists, and for making it open-source
-* **All past, present, and future contributors to Iris**, for helping the project move along
-* **Dr. Rubisco**, for maintaining the website
-* **The Iris support and moderation team**, for handling user support requests and allowing me to focus on developing Iris
-* **daxnitro, karyonix, and sp614x**, for creating and maintaining the current shaders mods
+---
 
-## License
+## English
 
-All code in this (Iris) repository is completely free and open source, and you are free to read, distribute, and modify the code as long as you abide by the (fairly reasonable) terms of the [GNU LGPLv3 license](https://github.com/IrisShaders/Iris/blob/master/LICENSE).
+### Introduction
 
-glsl-transformer is licensed under the GNU Affero General Public License version 3. This may affect your ability to distribute Iris.
+Iris-MTP is a Metal port of Iris Shader mods for Minecraft 26.3 (Fabric/NeoForge). Instead of translating GLSL→Metal at runtime (a multi-month effort), Iris-MTP translates GLSL to MSL (Metal Shading Language) **ahead-of-time**, saving to `.imtp` files (Iris Metal Translated Package), then the mod loads only the pre-translated `.imtp`.
 
-Though it's not legally required, I'd appreciate it if you could ask before hosting your own public downloads for compiled versions of Iris. Though if you want to add the mod to a site like MCBBS, that's fine, no need to ask me.
+- `.zip` / folder without extension → loaded raw (untranslated), using OpenGL backend (default).
+- `.imtp` → loaded via Metal backend (iOS, macOS Intel, macOS ARM).
+- OpenGL remains as fallback/default; existing OpenGL code is untouched.
+
+### Credits
+
+- **IrisShaders/Iris** — original OpenGL, branch 26.3.
+- **Sodium** — GL shader base.
+- **Metallum** (kokodio) — Metal native binding (metal-jvm).
+- **Ynnyny** — Iris-MTP port.
+
+### Installation
+
+1. Clone repo: `https://github.com/Ynnyny/Iris-MTP.git` (branch `metal-port`).
+2. Metallum fork: `https://github.com/Ynnyny/Metallum` (branch `metal-multi-platform`), build and install to Maven Local or use the jar in `build/libs`.
+3. In `iris/common/build.gradle.kts`, Metallum is added as a dependency (flatDir pointing to `metallum/build/libs`).
+4. Build: `./gradlew :fabric:build` (or `:neoforge:build`).
+   - Requires Java 25 (see `build.gradle.kts`). Build verified with Java 25 (Temurin 25.0.5).
+
+### Usage
+
+1. Translate a shaderpack to `.imtp` via Gradle task:
+   ```
+   ./gradlew :common:translateShaders
+   ```
+   Or run the CLI directly:
+   ```
+   java net.irisshaders.iris.metal.ShaderTranslatorCLI <shaderpack-dir> <output-dir> [mc-version]
+   ```
+2. The `.imtp` file is written to the output directory (pack name + `.imtp`).
+3. Place the `.imtp` file into Minecraft's `shaderpacks/` folder.
+4. In-game, select the `.imtp` shaderpack. If `iris.metal.enabled=true` and `.imtp` exists, the mod loads via Metal backend. If `.zip` / no extension, the mod uses OpenGL and reports "not translated, using OpenGL".
+5. Config in `iris.properties`:
+   - `metalEnabled=true/false`
+   - `backend=opengl|metal`
+   - `metalRequireImtp=true/false`
+
+### In-game UI
+
+The shader translation screen (`MetalShaderTranslationScreen`) and progress bar (`ProgressBarWidget`) are placeholders (P5). Full GUI rendering requires a complete Minecraft 26.3 client environment.
+
+### Build Status
+
+- `:common:compileJava` — OK (Java 25).
+- `:fabric:compileJava` — OK.
+- Task `:common:translateShaders` — OK, outputs `.imtp` with correct structure.
+- Minecraft client test: **not runnable** due to missing full Minecraft dev environment / Microsoft account login. Noted in this README.
+
+### Constraints
+
+- Do not delete/modify existing OpenGL code — only add parallel new layers.
+- Each phase committed separately, not squashed.
+- Pure-Java classes (backend abstraction, translator) can be tested with javac independently before integrating into Gradle.
