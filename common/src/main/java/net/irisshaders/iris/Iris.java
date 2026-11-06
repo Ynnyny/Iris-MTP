@@ -32,6 +32,8 @@ import net.irisshaders.iris.shaderpack.option.Profile;
 import net.irisshaders.iris.shaderpack.option.values.MutableOptionValues;
 import net.irisshaders.iris.shaderpack.option.values.OptionValues;
 import net.irisshaders.iris.shaderpack.programs.ProgramSet;
+import net.irisshaders.iris.shader.translator.ImtpReader;
+import net.irisshaders.iris.shader.translator.GlslToMslTranslator;
 import net.irisshaders.iris.uniforms.CapturedRenderingState;
 import net.irisshaders.iris.vertices.IrisVertexFormats;
 import net.irisshaders.iris.vertices.sodium.EntityToTerrainVertexSerializer;
@@ -96,6 +98,8 @@ public class Iris {
 	private static ShaderpackDirectoryManager shaderpacksDirectoryManager;
 	private static ShaderPack currentPack;
 	private static String currentPackName;
+	private static Map<String, Map<GlslToMslTranslator.ShaderStage, String>> metalPrograms;
+	private static boolean metalImtpLoaded;
 	private static Optional<Exception> storedError = Optional.empty();
 	private static boolean initialized;
 	private static PipelineManager pipelineManager;
@@ -286,6 +290,11 @@ public class Iris {
 			return false;
 		}
 
+		// .imtp (Iris Metal Translated Package) - pre-translated MSL shaders
+		if (name.toLowerCase().endsWith(".imtp")) {
+			return loadMetalImtpShaderpack(name, shaderPackRoot);
+		}
+
 		Path shaderPackPath;
 		boolean isZip = false;
 
@@ -368,6 +377,31 @@ public class Iris {
 		logger.info("Using shaderpack: " + name);
 
 		return true;
+	}
+
+	/**
+	 * Load .imtp shaderpack (pre-translated MSL). Read MSL via ImtpReader,
+	 * store in metalPrograms for MetalBackend to use later.
+	 */
+	private static boolean loadMetalImtpShaderpack(String name, Path imtpPath) {
+		try {
+			Map<String, Map<GlslToMslTranslator.ShaderStage, String>> programs = ImtpReader.readImtp(imtpPath);
+			if (programs.isEmpty()) {
+				logger.error("Shaderpack .imtp \"{}\" contains no programs!", name);
+				return false;
+			}
+			metalPrograms = programs;
+			metalImtpLoaded = true;
+			currentPackName = name;
+			currentPack = null; // No ShaderPack for .imtp (MSL only)
+
+			logger.info("Loaded Metal .imtp shaderpack: {} ({} programs)", name, programs.size());
+			return true;
+		} catch (IOException e) {
+			logger.error("Failed to read .imtp shaderpack \"{}\"!", name);
+			logger.error("", e);
+			return false;
+		}
 	}
 
 	private static void handleException(Exception e) {
@@ -690,6 +724,14 @@ public class Iris {
 
 	public static String getCurrentPackName() {
 		return currentPackName;
+	}
+
+	public static Map<String, Map<GlslToMslTranslator.ShaderStage, String>> getMetalPrograms() {
+		return metalPrograms;
+	}
+
+	public static boolean isMetalImtpLoaded() {
+		return metalImtpLoaded;
 	}
 
 	public static IrisConfig getIrisConfig() {
