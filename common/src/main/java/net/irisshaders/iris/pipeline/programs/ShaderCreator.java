@@ -163,8 +163,13 @@ public class ShaderCreator {
 
 		PartialShader id = link(name, vertex, geometry, tessControl, tessEval, fragment, vertexFormat, false);
 
-
         VertexFormat finalVertexFormat = vertexFormat;
+        if (net.irisshaders.iris.backend.BackendRegistry.activeType() != net.irisshaders.iris.backend.BackendType.OPENGL) {
+            return new ShaderSupplier(shaderKey, id, () -> {
+                boolean tess = tessControl != null || tessEval != null;
+                return new MetalShader(name, id.program(), tess);
+            });
+        }
         return new ShaderSupplier(shaderKey, id, () -> {
 			try {
 				return new ExtendedShader(id.getFinally(), name, finalVertexFormat, tessControl != null || tessEval != null, writingToBeforeTranslucent, writingToAfterTranslucent, blendModeOverride, alpha, uniforms -> {
@@ -184,6 +189,11 @@ public class ShaderCreator {
 
 
 	public static PartialShader link(String name, String vertex, String geometry, String tessControl, String tessEval, String fragment, VertexFormat vertexFormat, boolean isFallback) throws ShaderCompileException {
+		// Metal back-end: tao program bang MetalBackend neu duoc enable
+		if (net.irisshaders.iris.backend.BackendRegistry.activeType() != net.irisshaders.iris.backend.BackendType.OPENGL) {
+			return linkMetal(name, vertex, fragment, geometry);
+		}
+
 		int i = GlStateManager.glCreateProgram();
 		if (i <= 0) {
 			throw new RuntimeException("Could not create shader program (returned program ID " + i + ")");
@@ -206,6 +216,40 @@ public class ShaderCreator {
 
 			return new PartialShader(i, vertexS, fragS, geometryS, tessContS, tessEvalS);
 		}
+	}
+
+	/**
+	 * Tao Metal program bang MetalBackend tu MSL source cua .imtp.
+	 * Tra ve PartialShader voi program = -1 (danh dau Metal mode).
+	 */
+	private static PartialShader linkMetal(String name, String vertex, String fragment, String geometry) {
+		net.irisshaders.iris.backend.RenderBackend backend = net.irisshaders.iris.backend.BackendRegistry.get();
+		if (backend == null) {
+			throw new RuntimeException("Metal backend not initialized");
+		}
+
+		java.util.Map<net.irisshaders.iris.shader.translator.GlslToMslTranslator.ShaderStage, String> programs = null;
+		java.util.Map<String, java.util.Map<net.irisshaders.iris.shader.translator.GlslToMslTranslator.ShaderStage, String>> metalPrograms = net.irisshaders.iris.Iris.getMetalPrograms();
+		if (metalPrograms != null) {
+			programs = metalPrograms.get(name);
+		}
+
+		String vertexMSL = vertex;
+		String fragmentMSL = fragment;
+		String geometryMSL = geometry;
+
+		if (programs != null) {
+			String v = programs.get(net.irisshaders.iris.shader.translator.GlslToMslTranslator.ShaderStage.VERTEX);
+			String f = programs.get(net.irisshaders.iris.shader.translator.GlslToMslTranslator.ShaderStage.FRAGMENT);
+			String g = programs.get(net.irisshaders.iris.shader.translator.GlslToMslTranslator.ShaderStage.GEOMETRY);
+			if (v != null) vertexMSL = v;
+			if (f != null) fragmentMSL = f;
+			if (g != null) geometryMSL = g;
+		}
+
+		net.irisshaders.iris.backend.BackendHandle handle = backend.createProgram(name, vertexMSL, fragmentMSL, geometryMSL);
+
+		return new PartialShader(-1, -1, -1, -1, -1, -1);
 	}
 
 	private static void attachIfValid(int i, int s) {

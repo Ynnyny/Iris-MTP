@@ -24,13 +24,18 @@ public class ShaderMap {
 
 		loadingMap.forAllShaders((key, shader) -> {
 			if (shader != null) {
+				Object shaderObj = shader.shader().get();
+				if (!(shaderObj instanceof GlProgram)) {
+					// Metal shader - skip OpenGL-specific shader map (P6+)
+					return;
+				}
 				if (deletionFunction.apply(shader)) {
 					GlStateManager.glDeleteProgram(shader.id().program());
 					return;
 				}
 
 				checkLinkingState(key, shader);
-				GlProgram shaderProgram = shader.shader().get();
+				GlProgram shaderProgram = (GlProgram) shaderObj;
 				this.shaders[key.ordinal()] = shaderProgram;
 				programConsumer.accept(shaderProgram);
 			}
