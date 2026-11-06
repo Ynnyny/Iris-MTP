@@ -1,18 +1,32 @@
 package net.irisshaders.iris.backend;
 
+import io.github.kokodio.metaljvm.metal.MTLCommandQueue;
+import io.github.kokodio.metaljvm.metal.MTLDevice;
+import io.github.kokodio.metaljvm.metal.MTLFunction;
+import io.github.kokodio.metaljvm.metal.MTLLibrary;
+import io.github.kokodio.metaljvm.metal.MTLRenderPipelineDescriptor;
+import io.github.kokodio.metaljvm.metal.MTLRenderPipelineState;
+import io.github.kokodio.metaljvm.metal.Metal;
+import io.github.kokodio.metaljvm.objc.AutoreleasePool;
+import io.github.kokodio.metaljvm.foundation.NSErrorException;
+
 import java.util.List;
 
 /**
- * Metal back-end \u0111ang x\u0103y d\u1ef1ng (skeleton). \u0110\u01b0\u1ee3c tri\u1ec3n khai \u0111\u1ea7y \u0111\u1ee3 h\u1ed7 tr\u1ee3:
- * Metal iOS, Metal macOS (Intel v\u00e0 ARM). T\u00e1i li\u1ec7u tham kh\u1ea3o: Apple Metal framework
- * (MTLDevice, MTLCommandQueue, MTLRenderPipelineState, MTLTexture, MTLFramebuffer/chiru MTLRenderPassDescriptor).
+ * Metal back-end connecting to Metallum (metal-jvm). Supports Metal iOS,
+ * Metal macOS (Intel and ARM).
  *
- * <p>Tri\u1ec3n khai \u0111\u00e2y \u0111\u01b0\u1ee3c t\u00f4 \u0111\u01b0\u1ee3c bi\u00ean d\u1ecbch v\u1edbi JNI/ObjC bridge ho\u1eb7c
- * th\u01b0 vi\u1ec7n Java-Metal binding c\u00f3 s\u1eedi. Trong giai \u1ee7a 1, c\u00e1c ph\u01b0\u01a1ng th\u1ee9c n\u00eau b\u00fa
- * UnsupportedOperationException v\u1edbi ghi ch\u00fa TODO \u0111\u1ec3 nh\u1ee9ng \u0111\u1ea5u ti\u00ean c\u1ea7n l\u00e0m.
+ * <p>init() creates MTLDevice via Metal.MTLCreateSystemDefaultDevice(),
+ * MTLCommandQueue. createProgram() compiles MSL source (from .imtp) into
+ * MTLFunction + MTLRenderPipelineState.
+ *
+ * <p>Texture, framebuffer, sampler, buffer, draw methods are not yet
+ * implemented (UnsupportedOperationException), placeholder for P6+.
  */
 public class MetalBackend implements RenderBackend {
 	private final BackendType platform;
+	private MTLDevice device;
+	private MTLCommandQueue commandQueue;
 
 	public MetalBackend(BackendType platform) {
 		this.platform = platform;
@@ -25,31 +39,78 @@ public class MetalBackend implements RenderBackend {
 
 	@Override
 	public void init() {
-		// TODO: T\u1ea1o MTLDevice (default device), MTLCommandQueue, MTLRenderPipelineLibrary.
-		// macOS: MTLCreateSystemDefaultDevice()
-		// iOS:   MTLCreateSystemDefaultDevice()
-		throw new UnsupportedOperationException("Metal device init not implemented yet.");
+		device = Metal.MTLCreateSystemDefaultDevice();
+		if (device == null) {
+			throw new IllegalStateException("MTLCreateSystemDefaultDevice returned null for platform " + platform);
+		}
+		commandQueue = device.newCommandQueue();
 	}
 
 	@Override
 	public Object device() {
-		throw new UnsupportedOperationException("Metal device accessor not implemented yet.");
+		return device;
 	}
 
 	@Override
 	public BackendHandle createProgram(String name, String vertex, String fragment, String geometry) {
-		// TODO: D\u1ecbch GLSL \u0111\u00e3 \u0111\u01b0\u1ee3c \u0111\u1ed9i sang MSL (xem shader.translator),
-		// sau \u0111\u00f3 t\u1ea1o MTLFunction (vertex/fragment) + MTLRenderPipelineState.
-		throw new UnsupportedOperationException("Metal program creation not implemented yet.");
+		if (device == null) {
+			throw new IllegalStateException("MetalBackend not initialized");
+		}
+		try (AutoreleasePool pool = AutoreleasePool.push()) {
+			MTLLibrary library = device.newLibraryWithSource(vertex, null);
+			if (library == null) {
+				throw new RuntimeException("Failed to compile Metal vertex library for " + name);
+			}
+			MTLFunction vertexFunc = library.newFunctionWithName("vertex_main");
+			library.release();
+			if (vertexFunc == null) {
+				throw new RuntimeException("Failed to resolve vertex entry point 'vertex_main' for " + name);
+			}
+
+			MTLLibrary fragLibrary = device.newLibraryWithSource(fragment, null);
+			if (fragLibrary == null) {
+				vertexFunc.release();
+				throw new RuntimeException("Failed to compile Metal fragment library for " + name);
+			}
+			MTLFunction fragmentFunc = fragLibrary.newFunctionWithName("fragment_main");
+			fragLibrary.release();
+			if (fragmentFunc == null) {
+				vertexFunc.release();
+				throw new RuntimeException("Failed to resolve fragment entry point 'fragment_main' for " + name);
+			}
+
+			MTLRenderPipelineState pipeline = null;
+			try {
+				MTLRenderPipelineDescriptor descriptor = MTLRenderPipelineDescriptor.alloc().init();
+				descriptor.setVertexFunction(vertexFunc);
+				descriptor.setFragmentFunction(fragmentFunc);
+				descriptor.setDepthAttachmentPixelFormat(io.github.kokodio.metaljvm.metal.MTLPixelFormat.BGRA8Unorm);
+				pipeline = device.newRenderPipelineState(descriptor);
+				descriptor.release();
+			} catch (NSErrorException e) {
+				vertexFunc.release();
+				fragmentFunc.release();
+				throw new RuntimeException("Failed to create Metal render pipeline state for " + name + ": " + e.getMessage(), e);
+			}
+
+			vertexFunc.release();
+			fragmentFunc.release();
+
+			if (pipeline == null) {
+				throw new RuntimeException("Failed to create Metal render pipeline state for " + name);
+			}
+
+			return new BackendHandle(System.identityHashCode(pipeline), name + "_metal");
+		}
 	}
 
 	@Override
 	public void destroyProgram(BackendHandle program) {
+		// MTLRenderPipelineState release handled via handle if needed
 	}
 
 	@Override
 	public BackendHandle createTexture(int width, int height, TextureFormat format, int mipLevels) {
-		// TODO: T\u1ea1o MTLTexture v\u1edbi MTLPixelFormat \u0111\u01b0\u1ee3ng v\u1edbi TextureFormat.
 		throw new UnsupportedOperationException("Metal texture creation not implemented yet.");
 	}
 
@@ -59,7 +120,6 @@ public class MetalBackend implements RenderBackend {
 
 	@Override
 	public BackendHandle createFramebuffer(List<BackendHandle> colorAttachments, BackendHandle depthAttachment) {
-		// TODO: X\u00e9p d\u1ee5ng MTLRenderPassDescriptor / MTLRenderPassAttachmentDescriptor.
 		throw new UnsupportedOperationException("Metal framebuffer creation not implemented yet.");
 	}
 
@@ -69,7 +129,6 @@ public class MetalBackend implements RenderBackend {
 
 	@Override
 	public BackendHandle createSampler(SamplerDescriptor descriptor) {
-		// TODO: T\u1ea1o MTLSamplerState v\u1edbi MTLSamplerMagFilter/MinFilter/WrapMode.
 		throw new UnsupportedOperationException("Metal sampler creation not implemented yet.");
 	}
 
@@ -79,7 +138,6 @@ public class MetalBackend implements RenderBackend {
 
 	@Override
 	public BackendHandle createBuffer(long sizeInBytes, BufferUsage usage, java.lang.Object initialData) {
-		// TODO: T\u1ea1o MTLBuffer v\u1edbi MTLStorageMode (Shared/Private/Managed).
 		throw new UnsupportedOperationException("Metal buffer creation not implemented yet.");
 	}
 
@@ -89,36 +147,40 @@ public class MetalBackend implements RenderBackend {
 
 	@Override
 	public void updateBuffer(BackendHandle buffer, long offset, byte[] data, long dataOffset, long length) {
-		// TODO: [buffer didModifyRange:] ho\u1eb7c memcpy v\u00e0o MTLBuffer content.
 	}
 
 	@Override
 	public void beginFrame(int framebufferWidth, int framebufferHeight) {
-		// TODO: L\u00e1y MTLCommandBuffer t\u1eeb MTLCommandQueue, b\u1ea5t \u0111\u1ea7u render pass.
+		// TODO: MTLCommandBuffer + render pass encoder
 	}
 
 	@Override
 	public void endFrame() {
-		// TODO: K\u1ebft \u00f3c render pass, commit MTLCommandBuffer, present drawable.
+		// TODO: commit + present
 	}
 
 	@Override
 	public void draw(BackendHandle program, int vertexCount, int instanceCount) {
-		// TODO: \u0111\u1ea5t MTLRenderPipelineState, MTLDepthStencilState, v\u1ec1 drawPrimitives/drawIndexedPrimitives.
+		throw new UnsupportedOperationException("Metal draw not implemented yet.");
 	}
 
 	@Override
 	public void setViewport(int x, int y, int width, int height) {
-		// TODO: \u0111\u1ea5t MTLViewport.
 	}
 
 	@Override
 	public void clear(float r, float g, float b, float a) {
-		// TODO: clearColor \u0111\u1ea1t v\u00e0o render pass descriptor.
 	}
 
 	@Override
 	public void dispose() {
-		// TODO: Gi\u1ea3i p\u00f3ng MTLCommandQueue, MTLDevice.
+		if (commandQueue != null) {
+			commandQueue.release();
+			commandQueue = null;
+		}
+		if (device != null) {
+			device.release();
+			device = null;
+		}
 	}
 }

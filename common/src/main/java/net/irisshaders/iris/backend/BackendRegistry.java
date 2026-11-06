@@ -5,13 +5,14 @@ package net.irisshaders.iris.backend;
  */
 public final class BackendRegistry {
 	private static RenderBackend backend;
+	private static BackendType forcedType = null;
 
 	private BackendRegistry() {
 	}
 
 	public static RenderBackend get() {
 		if (backend == null) {
-			backend = new OpenGLBackend();
+			backend = createDefault();
 		}
 		return backend;
 	}
@@ -25,7 +26,15 @@ public final class BackendRegistry {
 	}
 
 	/**
-	 * Ch\u1ecdn back-end Metal tu\u00f4ng \u0111\u1ee3ng v\u1edbi platform runtime.
+	 * \u0110\u1ea1t back-end b\u1ebfd c\u00e0o overrides (tr\u01b0\u1edbc khi get() g\u1ec3i createDefault).
+	 */
+	public static void forceType(BackendType type) {
+		forcedType = type;
+		backend = null; // reset \u0111\u1ec3 get() t\u1ea1o m\u1edbi
+	}
+
+	/**
+	 * Ch\u1ecdn back-end Metal t\u01b0\u01a1ng \u0111\u1ee3ng v\u1edbi platform runtime.
 	 */
 	public static BackendType detectMetalPlatform() {
 		String os = System.getProperty("os.name", "").toLowerCase();
@@ -40,5 +49,13 @@ public final class BackendRegistry {
 			return BackendType.METAL_IOS;
 		}
 		return BackendType.OPENGL;
+	}
+
+	private static RenderBackend createDefault() {
+		BackendType type = forcedType != null ? forcedType : detectMetalPlatform();
+		if (type != BackendType.OPENGL) {
+			return new MetalBackend(type);
+		}
+		return new OpenGLBackend();
 	}
 }

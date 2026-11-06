@@ -52,6 +52,19 @@ public class IrisConfig {
 	 * If the update notification should be disabled or not.
 	 */
 	private boolean disableUpdateMessage;
+	/**
+	 * Whether Metal backend is enabled. Defaults to false (OpenGL).
+	 */
+	private boolean metalEnabled;
+	/**
+	 * Backend selection: "opengl" or "metal". Overrides metalEnabled.
+	 */
+	private String backend = "opengl";
+	/**
+	 * Whether Metal requires a translated .imtp shaderpack. If true and no .imtp
+	 * is found, shaderpack loading fails with a clear error.
+	 */
+	private boolean metalRequireImtp;
 
 	public IrisConfig(Path propertiesPath, Path excluded) {
 		shaderPackName = null;
@@ -59,6 +72,9 @@ public class IrisConfig {
 		allowUnknownShaders = false;
 		enableDebugOptions = false;
 		disableUpdateMessage = false;
+		metalEnabled = false;
+		backend = "opengl";
+		metalRequireImtp = false;
 		this.propertiesPath = propertiesPath;
 		this.excludedPath = excluded;
 	}
@@ -121,6 +137,30 @@ public class IrisConfig {
 		return disableUpdateMessage;
 	}
 
+	public boolean isMetalEnabled() {
+		return metalEnabled;
+	}
+
+	public void setMetalEnabled(boolean enabled) {
+		this.metalEnabled = enabled;
+	}
+
+	public String getBackend() {
+		return backend;
+	}
+
+	public void setBackend(String backend) {
+		this.backend = backend;
+	}
+
+	public boolean isMetalRequireImtp() {
+		return metalRequireImtp;
+	}
+
+	public void setMetalRequireImtp(boolean require) {
+		this.metalRequireImtp = require;
+	}
+
 	public void setDebugEnabled(boolean enabled) {
 		enableDebugOptions = enabled;
 	}
@@ -174,6 +214,9 @@ public class IrisConfig {
 		allowUnknownShaders = "true".equals(properties.getProperty("allowUnknownShaders"));
 		enableDebugOptions = "true".equals(properties.getProperty("enableDebugOptions"));
 		disableUpdateMessage = "true".equals(properties.getProperty("disableUpdateMessage"));
+		metalEnabled = "true".equals(properties.getProperty("metalEnabled"));
+		backend = properties.getProperty("backend", "opengl");
+		metalRequireImtp = "true".equals(properties.getProperty("metalRequireImtp"));
 		try {
 			IrisVideoSettings.shadowDistance = Integer.parseInt(properties.getProperty("maxShadowRenderDistance", "32"));
 			IrisVideoSettings.colorSpace = ColorSpace.valueOf(properties.getProperty("colorSpace", "SRGB"));
@@ -203,6 +246,9 @@ public class IrisConfig {
 		properties.setProperty("allowUnknownShaders", allowUnknownShaders ? "true" : "false");
 		properties.setProperty("enableDebugOptions", enableDebugOptions ? "true" : "false");
 		properties.setProperty("disableUpdateMessage", disableUpdateMessage ? "true" : "false");
+		properties.setProperty("metalEnabled", metalEnabled ? "true" : "false");
+		properties.setProperty("backend", backend);
+		properties.setProperty("metalRequireImtp", metalRequireImtp ? "true" : "false");
 		properties.setProperty("maxShadowRenderDistance", String.valueOf(IrisVideoSettings.shadowDistance));
 		properties.setProperty("colorSpace", IrisVideoSettings.colorSpace.name());
 		// NB: This uses ISO-8859-1 with unicode escapes as the encoding
