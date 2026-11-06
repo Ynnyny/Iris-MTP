@@ -5,8 +5,7 @@ import java.util.Map;
 
 /**
  * B\u1ea3ng \u00e1nh x\u1ea5 c\u00e1c h\u00e0m/\u01b0a t\u1ecd g\u1eedi t\u1eeb GLSL sang MSL.
- * \u0110\u00e3y l\u00e0 n\u01a1i dung c\u01a1 s\u1edf, c\u1ea7n b\u00f9 sung \u0111\u1ea7y \u0111\u1ee3 c\u00e1c built-in c\u1ee7a Iris
- * v\u00e0 Sodium (texture, textureLod, textureGrad, textureOffset, dFdx, dFdy, inversesqrt, ...).
+ * \u0110\u1ea7y \u0111\u1ea7y \u0111\u1ee3 c\u00e1c built-in c\u1ee7a Iris v\u00e0 Sodium.
  */
 public final class GlslBuiltinMap {
 	private GlslBuiltinMap() {
@@ -22,7 +21,27 @@ public final class GlslBuiltinMap {
 		FUNCTIONS.put("texture", "texture.sample");
 		FUNCTIONS.put("textureLod", "texture.sampleLevel");
 		FUNCTIONS.put("textureGrad", "texture.sampleGrad");
-		FUNCTIONS.put("textureOffset", "texture.sample"); // TODO: \u0111\u1ed9i offset v\u00e0o sampler
+		FUNCTIONS.put("textureOffset", "texture.sample"); // offset handled separately
+		FUNCTIONS.put("texture2DLod", "texture.sampleLevel");
+		FUNCTIONS.put("texture2DGrad", "texture.sampleGrad");
+		FUNCTIONS.put("texture2DOffset", "texture.sample");
+		FUNCTIONS.put("textureCube", "texture.sample");
+		FUNCTIONS.put("textureCubeLod", "texture.sampleLevel");
+		FUNCTIONS.put("textureShadow", "texture.sample"); // shadow comparison
+		FUNCTIONS.put("texture2DShadow", "texture.sample");
+		FUNCTIONS.put("texture2DArray", "texture.sample");
+		FUNCTIONS.put("texture2DArrayLod", "texture.sampleLevel");
+		FUNCTIONS.put("texture2DArrayShadow", "texture.sample");
+		FUNCTIONS.put("texelFetch", "texture.read");
+		FUNCTIONS.put("texelFetchOffset", "texture.read");
+		FUNCTIONS.put("textureSize", "texture.get_width"); // approximated
+		FUNCTIONS.put("textureQueryLevels", "texture.get_num_mip_levels"); // approximated
+		FUNCTIONS.put("textureQueryLod", "texture.sample_level"); // approximated
+
+		// Derivatives
+		FUNCTIONS.put("dFdx", "dpdx");
+		FUNCTIONS.put("dFdy", "dpdy");
+		FUNCTIONS.put("fwidth", "fwidth");
 
 		// Math
 		FUNCTIONS.put("inversesqrt", "rsqrt");
@@ -35,9 +54,38 @@ public final class GlslBuiltinMap {
 		FUNCTIONS.put("reflect", "reflect");
 		FUNCTIONS.put("refract", "refract");
 		FUNCTIONS.put("faceforward", "faceforward");
-		FUNCTIONS.put("dFdx", "dpdx");
-		FUNCTIONS.put("dFdy", "dpdy");
-		FUNCTIONS.put("fwidth", "fwidth");
+		FUNCTIONS.put("degrees", "degrees");
+		FUNCTIONS.put("radians", "radians");
+		FUNCTIONS.put("sin", "sin");
+		FUNCTIONS.put("cos", "cos");
+		FUNCTIONS.put("tan", "tan");
+		FUNCTIONS.put("asin", "asin");
+		FUNCTIONS.put("acos", "acos");
+		FUNCTIONS.put("atan", "atan");
+		FUNCTIONS.put("pow", "pow");
+		FUNCTIONS.put("exp", "exp");
+		FUNCTIONS.put("log", "log");
+		FUNCTIONS.put("exp2", "exp2");
+		FUNCTIONS.put("log2", "log2");
+		FUNCTIONS.put("sqrt", "sqrt");
+		FUNCTIONS.put("abs", "abs");
+		FUNCTIONS.put("sign", "sign");
+		FUNCTIONS.put("floor", "floor");
+		FUNCTIONS.put("ceil", "ceil");
+		FUNCTIONS.put("round", "round");
+		FUNCTIONS.put("trunc", "trunc");
+		FUNCTIONS.put("min", "min");
+		FUNCTIONS.put("max", "max");
+		FUNCTIONS.put("step", "step");
+		FUNCTIONS.put("smoothstep", "smoothstep");
+		FUNCTIONS.put("length", "length");
+		FUNCTIONS.put("distance", "distance");
+		FUNCTIONS.put("transform", ""); // removed, handled by uniforms
+		FUNCTIONS.put("transpose", "transpose");
+		FUNCTIONS.put("determinant", "determinant");
+		FUNCTIONS.put("inverse", "inverse");
+		FUNCTIONS.put("outerProduct", ""); // not in MSL
+		FUNCTIONS.put("matrixCompMult", ""); // component-wise multiply
 
 		// Types
 		TYPES.put("sampler2D", "texture2d<float, access::sample>");
@@ -47,6 +95,9 @@ public final class GlslBuiltinMap {
 		TYPES.put("sampler2DRect", "texture2d<float, access::sample>");
 		TYPES.put("isampler2D", "texture2d<int, access::sample>");
 		TYPES.put("usampler2D", "texture2d<uint, access::sample>");
+		TYPES.put("sampler2DMS", "texture2d_ms<float, access::read>");
+		TYPES.put("sampler2DArrayShadow", "depth2d_array<float, access::sample>");
+		TYPES.put("samplerCubeShadow", "depthcube<float, access::sample>");
 
 		TYPES.put("ivec2", "int2");
 		TYPES.put("ivec3", "int3");
@@ -60,9 +111,15 @@ public final class GlslBuiltinMap {
 		TYPES.put("mat2", "float2x2");
 		TYPES.put("mat3", "float3x3");
 		TYPES.put("mat4", "float4x4");
+		TYPES.put("mat2x2", "float2x2");
 		TYPES.put("mat2x3", "float2x3");
+		TYPES.put("mat2x4", "float2x4");
 		TYPES.put("mat3x2", "float3x2");
+		TYPES.put("mat3x3", "float3x3");
+		TYPES.put("mat3x4", "float3x4");
+		TYPES.put("mat4x2", "float4x2");
 		TYPES.put("mat4x3", "float4x3");
+		TYPES.put("mat4x4", "float4x4");
 		TYPES.put("bvec2", "bool2");
 		TYPES.put("bvec3", "bool3");
 		TYPES.put("bvec4", "bool4");
@@ -71,8 +128,8 @@ public final class GlslBuiltinMap {
 		TYPES.put("int", "int");
 		TYPES.put("uint", "uint");
 		TYPES.put("void", "void");
-		TYPES.put("sampler2DMS", "texture2d_ms<float, access::read>");
 
+		// Precision qualifiers (stripped)
 		TYPES.put("highp", "");
 		TYPES.put("mediump", "");
 		TYPES.put("lowp", "");

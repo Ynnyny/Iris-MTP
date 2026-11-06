@@ -205,3 +205,17 @@ tasks {
 tasks.configureEach {
     group = null
 }
+
+tasks.register("translateShaders", JavaExec::class) {
+    dependsOn("compileJava")
+    description = "Translate GLSL shaders to .imtp (Iris Metal Translated Package)"
+    group = "metal"
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("net.irisshaders.iris.metal.ShaderTranslatorCLI")
+    args(projectDir.resolve("src/main/resources/assets/iris/shaders/core").toString(),
+         buildDir.resolve("imtp").toString(),
+         MINECRAFT_VERSION)
+    doFirst {
+        println("Translating shaders to .imtp...")
+    }
+}
