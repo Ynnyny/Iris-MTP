@@ -5,26 +5,6 @@ plugins {
     id("com.github.gmazzo.buildconfig") version "5.3.5"
 }
 
-repositories {
-    mavenLocal()
-    maven("https://maven.parchmentmc.org/")
-    maven {
-        name = "caffeinemcRepositoryReleases"
-        url = uri("https://maven.caffeinemc.net/releases")
-    }
-    exclusiveContent {
-        forRepository {
-            maven {
-                name = "Modrinth"
-                url = uri("https://api.modrinth.com/maven")
-            }
-        }
-        filter {
-            includeGroup("maven.modrinth")
-        }
-    }
-}
-
 val MINECRAFT_VERSION: String by rootProject.extra
 val PARCHMENT_VERSION: String? by rootProject.extra
 val FABRIC_LOADER_VERSION: String by rootProject.extra
@@ -49,6 +29,26 @@ buildConfig {
     }
 }
 
+repositories {
+    mavenLocal()
+    maven("https://maven.parchmentmc.org/")
+    maven {
+        name = "caffeinemcRepositoryReleases"
+        url = uri("https://maven.caffeinemc.net/releases")
+    }
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = "Modrinth"
+                url = uri("https://api.modrinth.com/maven")
+            }
+        }
+        filter {
+            includeGroup("maven.modrinth")
+        }
+    }
+}
+
 dependencies {
     minecraft(group = "com.mojang", name = "minecraft", version = MINECRAFT_VERSION)
 
@@ -62,6 +62,10 @@ dependencies {
     compileOnly("org.antlr:antlr4-runtime:4.13.1")
     compileOnly("io.github.douira:glsl-transformer:3.0.0-pre3")
     compileOnly("org.anarres:jcpp:1.4.14")
+
+    // Metallum + metal-jvm (Metal native binding)
+    implementation(files(File(rootProject.projectDir.parentFile, "metallum/build/libs/metallum-0.0.25.jar")))
+    implementation("io.github.kokodio:metal-jvm:0.1.0")
 
     compileOnly(files(rootDir.resolve("DHApi.jar")))
 }
